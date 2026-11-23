@@ -118,6 +118,14 @@ function buildLateAdjustmentEscalation(
   const enabled = options.escalateLateAdjustments !== false;
   const maxLateAge = options.maxLateAdjustmentAgeMs ?? DEFAULT_MAX_LATE_ADJUSTMENT_AGE_MS;
 
+  if (!Number.isFinite(maxLateAge) || maxLateAge < 0) {
+    return {
+      route: "NONE",
+      escalatable: false,
+      guidance: "Invalid late-adjustment escalation window configured; contact support to correct the configuration",
+    };
+  }
+
   if (!enabled) {
     return {
       route: "NONE",

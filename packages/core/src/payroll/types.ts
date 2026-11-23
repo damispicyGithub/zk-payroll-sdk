@@ -63,3 +63,60 @@ export interface LateAdjustmentEscalationResult {
  * Equivalent to {@link LateAdjustmentEscalationResult}.
  */
 export type LateAdjustmentEscalation = LateAdjustmentEscalationResult;
+
+/**
+ * Evaluate the escalation level for a late payroll adjustment request.
+ *
+ * - Draft payrolls: no escalation needed ("none").
+ * - Locked payrolls: "standard" escalation requiring reviewer sign-off.
+ * - Settled or cancelled payrolls: "blocked" with an actionable error.
+ *
+ * Zero-amount adjustments and empty reasons are rejected as blocked with
+ * an actionable error, since they cannot be meaningfully applied.
+ */
+export function evaluateLateAdjustmentEscalation(
+  request: LateAdjustmentRequest,
+): LateAdjustmentEscalationResult {
+  if (request.reason.trim().length === 0) {
+    return {
+      level: "blocked",
+      requiresApproval: false,
+      error: "Adjustment reason must be a non-empty string.",
+    };
+  }
+
+  if (request.amount === 0n) {
+    return {
+      level: "blocked",
+      requiresApproval: false,
+      error: "Adjustment amount must be non-zero.",
+    };
+  }
+
+  switch (request.payrollStatus) {
+    case "draft":
+      return { level: "none", requiresApproval: false };
+    case "locked":
+      return { level: "standard", requiresApproval: true };
+    case "settled":
+      return {
+        level: "blocked",
+        requiresApproval: false,
+        error: `Payroll ${request.payrollId} is already settled; create a new payroll period to apply this adjustment.`,
+      };
+    case "cancelled":
+      return {
+        level: "blocked",
+        requiresApproval: false,
+        error: `Payroll ${request.payrollId} is cancelled; adjustments cannot be applied.`,
+      };
+    default: {
+      const exhaustive: never = request.payrollStatus;
+      return {
+        level: "blocked",
+        requiresApproval: false,
+        error: `Unknown payroll status: ${String(exhaustive)}`,
+      };
+    }
+  }
+}
